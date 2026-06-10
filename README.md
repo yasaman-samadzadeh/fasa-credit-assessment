@@ -38,14 +38,28 @@ data/*.csv ──► src/data.py ──► src/model.py ─────► src/p
 2. **Model**: logistic regression (L2, C=0.05, unweighted) on the 8 raw financial
    ratios + one-hot `sector`/`country`; preprocessing inside the pipeline (leak-free).
 3. **Evaluate**: `RepeatedStratifiedKFold(5×3)` → **ROC-AUC 0.806 ± 0.034**,
-   PR-AUC 0.531 (vs 0.17 base rate), Brier 0.114.
-4. **Decide**: probability → Low/Medium/High rating (cutoffs 0.10/0.25, validated
-   monotone out-of-fold: observed default 4.3% → 15.4% → 43.6%) + a cost-based alert
-   threshold (FN:FP = 5:1 → 0.175 ± 0.019, recall 0.75) selected out-of-fold.
+   PR-AUC 0.531 (vs 0.17 base rate), Brier 0.114. Notebook 03 also plots a
+   **reliability curve** (predicted vs observed default rate per bin) to confirm
+   probabilities are honest — points hug the diagonal.
+4. **Decide** — two separate instruments from `src/policy.py` (see below).
 5. **Explain**: each memo decomposes the company's own score (`coef × standardized
    value` — exact for a linear model), quantifies drivers against portfolio medians,
    and quotes the narrative's qualitative signals. A materiality floor stops the memo
    from inventing concerns for median companies.
+
+## Decision policy
+
+The model outputs a **probability**; policy turns it into human-readable and
+operational outputs. These are intentionally different:
+
+| Instrument | Purpose | How it is set | Key numbers (OOF) |
+|---|---|---|---|
+| **Risk rating** (Low / Medium / High) | Analyst communication in the memo | Fixed cutoffs on P(default): below 10% / 10–25% / 25%+ | Observed default rises **4.3% → 15.4% → 43.6%** (monotone — required before writing the deliverable) |
+| **Alert threshold** | Flag for manual review | Minimise expected cost with **FN:FP = 5:1** (missed default costs 5× a false alarm); threshold chosen **out-of-fold** (never tuned on the same rows it is graded on) | **0.175 ± 0.019** — recall **0.75**, **37%** of book flagged |
+
+A company can be Medium-rated but not flagged, or flagged at a different probability
+than the rating bands imply. The deliverable always carries the **probability**; the
+rating is a summary label.
 
 ## The story in notebooks
 
@@ -69,7 +83,7 @@ features/CV per comparison).
 | **Raw financials only** (no engineered ratios) | Raw 0.806 vs +engineered 0.800 — within noise; parsimony and interpretability win. |
 | **Narratives excluded from the model** | Phrase flags 0.453 / MiniLM embeddings 0.488 AUC *alone* (≈ chance); adding them to the financials hurts (−0.02 to −0.06). The templated phrases occur largely independently of the label. Text goes to the explanation layer, where it adds analyst value. |
 | **No class weighting / no resampling** | Unweighted 0.806 AUC, **Brier 0.114** vs weighted 0.803, Brier 0.178 — weighting distorts the probabilities for zero ranking gain. Imbalance is handled at the decision layer. |
-| **No calibration wrapper** | Sigmoid/isotonic change Brier by ±0.001 — the unweighted model is already calibrated. |
+| **No calibration wrapper** | Platt/isotonic barely move Brier (±0.001, within CV noise) — wrapper adds complexity without a meaningful gain; unweighted LR is already well calibrated. |
 | **No hyperparameter tuning** | A randomized search moved LR by ~0.002 AUC (within fold noise; the search score is selection-biased). Fixed C=0.05. |
 | **Threshold selected out-of-fold** | Per fold: swept on the other four, evaluated held-out → 0.175 ± 0.019 (stable). Never graded on the rows that chose it. |
 | **Deterministic memos by default** | Exact linear attributions cannot hallucinate numbers and run offline. `--llm` adds prose polish with the rating/probability validated verbatim and per-memo fallback. |
