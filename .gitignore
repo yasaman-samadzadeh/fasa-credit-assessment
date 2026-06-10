@@ -5,5 +5,8 @@ venv/
 .env
 .ipynb_checkpoints/
 .DS_Store
+.pytest_cache/
 outputs/*.csv
+outputs/*.npy
 !outputs/.gitkeep
+!outputs/predictions.csv

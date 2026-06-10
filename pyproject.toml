@@ -1,7 +1,7 @@
 [project]
 name = "fasa-credit-assessment"
 version = "0.1.0"
-description = "Add your description here"
+description = "AI-assisted credit risk screening prototype: default-probability model, decision policy and analyst explanations"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -20,3 +20,12 @@ dependencies = [
     "sentence-transformers>=5.5.1",
     "streamlit>=1.58.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
